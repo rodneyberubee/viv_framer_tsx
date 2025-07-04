@@ -1,0 +1,148 @@
+
+// pages/[restaurantId]/dashboard.tsx
+
+import React, { useEffect, useState } from 'react';
+
+interface RestaurantConfig {
+  restaurantId: string;
+  baseId: string;
+  tableName: string;
+  maxReservations: number;
+  futureCutoff: number;
+}
+
+interface Reservation {
+  id: string;
+  fields: {
+    name: string;
+    partySize: number;
+    contactInfo: string;
+    date: string;
+    timeSlot: string;
+    status: string;
+  };
+}
+
+export default function RestaurantDashboard({ restaurantId }: { restaurantId: string }) {
+  const [config, setConfig] = useState<RestaurantConfig | null>(null);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [editMax, setEditMax] = useState('');
+  const [blockDate, setBlockDate] = useState('');
+  const [blockTime, setBlockTime] = useState('');
+  const [blockReason, setBlockReason] = useState('');
+
+  useEffect(() => {
+    fetch(`/api/config/${restaurantId}`)
+      .then(res => res.json())
+      .then(setConfig)
+      .catch(console.error);
+
+    fetch(`/api/reservations/${restaurantId}`)
+      .then(res => res.json())
+      .then(setReservations)
+      .catch(console.error);
+  }, [restaurantId]);
+
+  const handleUpdateMax = async () => {
+    await fetch(`/api/control/updateMaxReservations`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurantId, newMax: parseInt(editMax) })
+    });
+  };
+
+  const handleBlockSlot = async () => {
+    await fetch(`/api/control/blockTime`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        restaurantId,
+        date: blockDate,
+        timeSlot: blockTime,
+        status: blockReason || 'blocked'
+      })
+    });
+  };
+
+  return (
+    <div style={{ padding: 20, backgroundColor: '#f3f7f2', fontFamily: 'sans-serif', color: '#51594d' }}>
+      <h2>🍽️ Restaurant Dashboard: {restaurantId}</h2>
+
+      {config && (
+        <div style={{ marginBottom: 20 }}>
+          <p><strong>Base ID:</strong> {config.baseId}</p>
+          <p><strong>Table Name:</strong> {config.tableName}</p>
+          <p><strong>Max Reservations:</strong> {config.maxReservations}</p>
+          <input
+            type="number"
+            placeholder="New maxReservations"
+            value={editMax}
+            onChange={e => setEditMax(e.target.value)}
+            style={{ marginRight: 10 }}
+          />
+          <button onClick={handleUpdateMax} style={buttonStyle}>Update</button>
+        </div>
+      )}
+
+      <h3>📋 Upcoming Reservations</h3>
+      <table style={{ width: '100%', backgroundColor: '#f7f7f2', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Party</th>
+            <th>Contact</th>
+            <th>Date</th>
+            <th>Time</th>
+            <th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {reservations.map(r => (
+            <tr key={r.id}>
+              <td>{r.fields.name}</td>
+              <td>{r.fields.partySize}</td>
+              <td>{r.fields.contactInfo}</td>
+              <td>{r.fields.date}</td>
+              <td>{r.fields.timeSlot}</td>
+              <td>{r.fields.status}</td>
+            </tr>
+          ))}
+          <tr>
+            <td colSpan={6}><hr /></td>
+          </tr>
+          <tr>
+            <td colSpan={6}><strong>Block a time slot</strong></td>
+          </tr>
+          <tr>
+            <td colSpan={2}>
+              <input type="date" value={blockDate} onChange={e => setBlockDate(e.target.value)} />
+            </td>
+            <td colSpan={2}>
+              <input type="time" value={blockTime} onChange={e => setBlockTime(e.target.value)} />
+            </td>
+            <td>
+              <input
+                type="text"
+                placeholder="Reason (default: blocked)"
+                value={blockReason}
+                onChange={e => setBlockReason(e.target.value)}
+              />
+            </td>
+            <td>
+              <button onClick={handleBlockSlot} style={buttonStyle}>Block</button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+const buttonStyle: React.CSSProperties = {
+  backgroundColor: '#403128',
+  color: '#f3f7f2',
+  padding: '6px 12px',
+  border: 'none',
+  borderRadius: 4,
+  cursor: 'pointer'
+};
